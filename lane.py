@@ -5,7 +5,8 @@ import time
 import rospy
 from std_msgs.msg import String, Int32
 
-def region_of_interest(edges):
+# defining the region in the image that i want capture and use
+def region_of_interest(edges): 
     height, width = edges.shape
     mask = np.zeros_like(edges)
 
@@ -24,6 +25,7 @@ def region_of_interest(edges):
     
     return cropped_edges
 
+
 def detect_edges(frame):
     # filter for blue lane lines
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -37,17 +39,19 @@ def detect_edges(frame):
     
     return edges
 
-
+# detecting line in the image to be use
 def detect_line_segments(cropped_edges):
     rho = 1  
     theta = np.pi / 180  
     min_threshold = 10  
     
+    #Use Hough transform to detect the images of the line
     line_segments = cv2.HoughLinesP(cropped_edges, rho, theta, min_threshold, 
                                     np.array([]), minLineLength=5, maxLineGap=150)
 
     return line_segments
 
+# developing an image of trajectory by the lane image captured
 def average_slope_intercept(frame, line_segments):
     lane_lines = []
     
@@ -90,6 +94,7 @@ def average_slope_intercept(frame, line_segments):
 
     return lane_lines
 
+#developing the line boundaries of lane image trajectory
 def make_points(frame, line):
     height, width, _ = frame.shape
     
@@ -106,6 +111,7 @@ def make_points(frame, line):
     
     return [[x1, y1, x2, y2]]
 
+#developing an intersection line on lane image for heading line
 def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5 ):
     line_image = np.zeros_like(frame)
     
@@ -118,7 +124,7 @@ def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5 ):
     
     return line_image
 
-
+#calculating the angle of heading line from the image using math.pi
 def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_width=3):
     heading_image = np.zeros_like(frame)
     height, width, _ = frame.shape
@@ -135,6 +141,7 @@ def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_wid
     
     return heading_image
 
+# developing an angle of heading line on line intersection
 def get_steering_angle(frame, lane_lines):
     
     height,width,_ = frame.shape
@@ -161,6 +168,7 @@ def get_steering_angle(frame, lane_lines):
     
     return steering_angle
 
+#Open Cv library to capture image using a webcam/camera
 video = cv2.VideoCapture(0)
 video.set(cv2.CAP_PROP_FRAME_WIDTH,320)
 video.set(cv2.CAP_PROP_FRAME_HEIGHT,240)
@@ -169,13 +177,14 @@ time.sleep(1)
 
 ##fourcc = cv2.VideoWriter_fourcc(*'XVID')
 ##out = cv2.VideoWriter('Original15.avi',fourcc,10,(320,240))
-##out2 = cv2.VideoWriter('Direction15.avi',fourcc,10,(320,240))
 speed = 8
 lastTime = 0
 lastError = 0
 
 kp = 0.4
 kd = kp * 0.65
+
+# will display multiple video from capture image depending on the filter used
 while True:
     ret,frame = video.read()
     cv2.imshow("original",frame)
@@ -186,9 +195,12 @@ while True:
     lane_lines_image = display_lines(frame,lane_lines)
     steering_angle = get_steering_angle(frame, lane_lines)
     heading_image = display_heading_line(lane_lines_image,steering_angle)
+    # the final image capture with heading display of mobile robot
     cv2.imshow("heading line",heading_image)
-
+    
+    #node used to communicate within ROS platform.
     rospy.init_node('direction_display')
+    # to send data to subscriber.
     pub=rospy.Publisher('direction', Int32, queue_size=1)
     rate=rospy.Rate(5)
 
@@ -197,7 +209,7 @@ while True:
     deviation = steering_angle - 90
     error = abs(deviation)
     
-    
+    #defining the heading direction of the mobile robot
     if deviation < 7.5 and deviation > -7.5:
         deviation = 0
         error = 0
@@ -232,7 +244,7 @@ while True:
     
     lastError = error
     lastTime = time.time()
-
+    #(directionH) is the topic of the communication
     pub.publish(directionH)    
     rate.sleep()
 
